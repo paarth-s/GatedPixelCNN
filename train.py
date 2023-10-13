@@ -9,7 +9,7 @@ import os
 from utils import str2bool, save_samples, get_loaders
 
 from tqdm import tqdm
-import wandb
+#import wandb
 
 from pixelcnn import PixelCNN
 
@@ -60,16 +60,16 @@ def test_and_sample(cfg, model, device, test_loader, height, width, losses, para
 
     test_loss = test_loss.mean().cpu() / len(test_loader.dataset)
 
-    wandb.log({
-        "Test loss": test_loss
-    })
+    #wandb.log({
+    #print(test_loss)
+    #})
     print("Average test loss: {}".format(test_loss))
 
     losses.append(test_loss)
     params.append(model.state_dict())
 
-    samples = model.sample((3, height, width), cfg.epoch_samples, device=device)
-    save_samples(samples, TRAIN_SAMPLES_DIR, 'epoch{}_samples.png'.format(epoch + 1))
+    #samples = model.sample((3, height, width), cfg.epoch_samples, device=device)
+    #save_samples(samples, TRAIN_SAMPLES_DIR, 'epoch{}_samples.png'.format(epoch + 1))
 
 
 def main():
@@ -112,15 +112,16 @@ def main():
 
     cfg = parser.parse_args()
 
-    wandb.init(project="PixelCNN")
-    wandb.config.update(cfg)
+    #wandb.init(project="PixelCNN")
+    #wandb.config.update(cfg)
     torch.manual_seed(42)
 
     EPOCHS = cfg.epochs
 
     model = PixelCNN(cfg=cfg)
 
-    device = torch.device("cuda" if torch.cuda.is_available() and cfg.cuda else "cpu")
+    #device = torch.device("mps" if torch.cuda.is_available() and cfg.cuda else "cpu")
+    device = torch.device("mps")
     model.to(device)
 
     train_loader, test_loader, HEIGHT, WIDTH = get_loaders(cfg.dataset, cfg.batch_size, cfg.color_levels, TRAIN_DATASET_ROOT, TEST_DATASET_ROOT)
@@ -128,7 +129,7 @@ def main():
     optimizer = optim.Adam(model.parameters(), lr=cfg.learning_rate, weight_decay=cfg.weight_decay)
     scheduler = optim.lr_scheduler.CyclicLR(optimizer, cfg.learning_rate, 10*cfg.learning_rate, cycle_momentum=False)
 
-    wandb.watch(model)
+    #wandb.watch(model)
 
     losses = []
     params = []
@@ -137,9 +138,13 @@ def main():
         train(cfg, model, device, train_loader, optimizer, scheduler, epoch)
         test_and_sample(cfg, model, device, test_loader, HEIGHT, WIDTH, losses, params, epoch)
 
+    samples = model.sample((3, HEIGHT, WIDTH), cfg.epoch_samples, device=device)
+    save_samples(samples, TRAIN_SAMPLES_DIR, 'hl{}_samples.png'.format(cfg.hidden_layers))
+
     print('\nBest test loss: {}'.format(np.amin(np.array(losses))))
     print('Best epoch: {}'.format(np.argmin(np.array(losses)) + 1))
     best_params = params[np.argmin(np.array(losses))]
+
 
     if not os.path.exists(MODEL_PARAMS_OUTPUT_DIR):
         os.mkdir(MODEL_PARAMS_OUTPUT_DIR)
